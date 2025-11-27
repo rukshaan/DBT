@@ -1,0 +1,8 @@
+############### enviroment setup ####################
+pip install virtualEnv
+virtualenv venv
+venv/SCripts/activate
+
+############### Packages install ####################
+pip install dbt-snowflake==1.9.0
+dbt init <project name>

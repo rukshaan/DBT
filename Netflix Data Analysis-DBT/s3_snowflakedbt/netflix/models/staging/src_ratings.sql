@@ -7,4 +7,5 @@ with raw_ratings as (
 select user_id,
        movie_id,
        rating,
-       timestamp from raw_ratings
+       timestamp 
+from raw_ratings

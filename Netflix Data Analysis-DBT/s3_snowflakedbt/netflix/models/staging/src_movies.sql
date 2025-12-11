@@ -1,5 +1,5 @@
 with raw_movies AS (
-    select * from MOVIELENS.RAW.RAW_MOVIES
+    select * from {{sources('netflix', 'r_movies')}}
 )
 SELECT 
     movie_Id,

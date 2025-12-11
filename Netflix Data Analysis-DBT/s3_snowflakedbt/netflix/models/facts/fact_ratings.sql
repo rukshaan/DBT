@@ -12,7 +12,7 @@ WITH src_ratings AS (
 SELECT user_id,
        movie_id,
        rating,
-       
+       timestamp
        from src_ratings
 WHERE rating IS NOT NULL
 {% if is_incremental() %}

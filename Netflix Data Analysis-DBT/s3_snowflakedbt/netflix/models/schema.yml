@@ -1,0 +1,85 @@
+models:
+  - name: dim_movies
+    description: "Dimension table for movies."
+    columns:
+      - name: movie_id
+        description: "The unique identifier for each movie."
+        tests:
+          - not_null
+          - unique
+      - name: movie_title
+        description: "The title of the movie."
+        tests:
+          - not_null
+      - name: genres
+        description: "The genres associated with the movie."
+      - name: genre_array
+        description: "An array of genres for easier querying."
+        tests:
+          - not_null
+  - name: dim_users
+    description: "Dimension table for users."
+    columns:
+      - name: user_id
+        description: "The unique identifier for each user."
+        tests:
+          - not_null
+          - unique
+  - name: dim_genome_tags
+    description: "Dimension table for genome tags."
+    columns:
+      - name: tag_id
+        description: "The unique identifier for each genome tag."
+        tests:
+          - not_null
+          - unique
+      - name: tag_name
+        description: "The description of the genome tag."
+        tests:
+          - not_null
+  - name: fact_ratings
+    description: "Fact table for user ratings of movies."
+    columns:
+      - name: user_id
+        description: "The unique identifier for each user."
+        tests:
+          - not_null
+      - name: movie_id
+        description: "The unique identifier for each movie."
+        tests:
+          - not_null
+      - name: rating
+        description: "The rating given by the user to the movie."
+        tests:
+          - not_null
+      - name: timestamp
+        description: "The timestamp when the rating was given."
+        tests:
+          - not_null
+
+  - name: fact_genome_scores
+    description: "Fact table for genome scores of movies."
+    columns:
+      - name: movie_id
+        description: "The unique identifier for each movie."
+        tests:
+          - not_null
+      - name: tag_id
+        description: "The unique identifier for each genome tag."
+        tests:
+          - not_null
+      - name: relevance
+        description: "The relevance score of the tag for the movie."
+        tests:
+          - not_null
+  - name: fact_genome_tags
+    description: "Fact table linking movies to their genome tags."
+    columns:
+      - name: tag_name
+        description: "The description of the genome tag."
+        tests:
+          - not_null
+      - name: tag_id
+        description: "The unique identifier for each genome tag."
+        tests:
+          - not_null

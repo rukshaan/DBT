@@ -1,0 +1,170 @@
+MOVIELENS.DEV.DIM_MOVIESMOVIELENS.DEV.DIM_MOVIESMOVIELENS.RAW.DIM_MOVIESMOVIELENS.RAW.DIM_MOVIES-- Use an admin role to create the integration
+USE ROLE ACCOUNTADMIN;
+
+-- 1. Create (or replace) a storage integration for your S3 bucket
+CREATE OR REPLACE STORAGE INTEGRATION s3_int_movielens
+  TYPE = EXTERNAL_STAGE
+  STORAGE_PROVIDER = 'S3'
+  STORAGE_AWS_ROLE_ARN = 'arn:aws:iam::608968273177:role/rukshan'
+  ENABLED = TRUE
+  STORAGE_ALLOWED_LOCATIONS = ('s3://netflix-database0309/');
+
+-- (Optional) Inspect integration to get AWS IAM user ARN & external ID — required later in AWS trust policy
+DESC INTEGRATION s3_int_movielens;
+
+-- 2. Ensure your database and schema exist
+CREATE DATABASE IF NOT EXISTS MOVIELENS;
+CREATE SCHEMA IF NOT EXISTS MOVIELENS.RAW;
+
+-- 3. Use that database & schema
+USE DATABASE MOVIELENS;
+USE SCHEMA MOVIELENS.RAW;
+
+-- 4. Create external stage referencing your S3 bucket via the integration
+CREATE OR REPLACE STAGE netflixstage
+  STORAGE_INTEGRATION = s3_int_movielens
+  URL = 's3://netflix-database0309/'
+  FILE_FORMAT = (TYPE = 'CSV' SKIP_HEADER = 1 FIELD_OPTIONALLY_ENCLOSED_BY = '"');
+
+-- 5. Grant necessary privileges for your TRANSFORM role (or whichever role you will use for loading/querying)
+GRANT USAGE ON INTEGRATION s3_int_movielens TO ROLE TRANSFORM;
+GRANT USAGE ON DATABASE MOVIELENS TO ROLE TRANSFORM;
+GRANT USAGE ON SCHEMA MOVIELENS.RAW TO ROLE TRANSFORM;
+GRANT CREATE STAGE ON SCHEMA MOVIELENS.RAW TO ROLE TRANSFORM;
+GRANT USAGE ON STAGE netflixstage TO ROLE TRANSFORM;
+
+
+-- ==========================================================
+-- 1. Set defaults
+-- ==========================================================
+USE WAREHOUSE COMPUTE_WH;
+USE DATABASE MOVIELENS;
+USE SCHEMA RAW;
+
+-- ==========================================================
+-- 2. Create the stage
+-- ==========================================================
+CREATE OR REPLACE STAGE netflixstage
+URL = 's3://netflix-database0309'
+CREDENTIALS = (
+    AWS_KEY_ID = 'AKIAY3SKWNUMQLWEYN6B'
+    AWS_SECRET_KEY = 'VXONMOw55CKcY6yo9CL8olOVdLDde/P207hD4aGU'
+);
+
+-- ==========================================================
+-- 3. Create the tables
+-- ==========================================================
+
+-- movies.csv: movieId,title,genres
+CREATE OR REPLACE TABLE raw_movies (
+    MOVIE_ID INTEGER,
+    TITLE STRING,
+    GENRES STRING
+);
+
+-- ratings.csv: userId,movieId,rating,timestamp
+CREATE OR REPLACE TABLE raw_ratings (
+    USER_ID INTEGER,
+    MOVIE_ID INTEGER,
+    RATING DOUBLE,
+    TIMESTAMP BIGINT
+);
+
+-- tags.csv: userId,movieId,tag,timestamp
+CREATE OR REPLACE TABLE raw_tags (
+    USER_ID INTEGER,
+    MOVIE_ID INTEGER,
+    TAG STRING,
+    TIMESTAMP BIGINT
+);
+
+-- OPTIONAL (uncomment if you want)
+-- genome-scores.csv: movieId,tagId,relevance
+CREATE OR REPLACE TABLE raw_genome_scores (
+    MOVIE_ID INTEGER,
+    TAG_ID INTEGER,
+    RELEVANCE DOUBLE
+);
+
+-- genome-tags.csv: tagId,tag
+CREATE OR REPLACE TABLE raw_genome_tags (
+    TAG_ID INTEGER,
+    TAG STRING
+);
+
+-- ==========================================================
+-- 4. Load data into tables
+-- ==========================================================
+
+-- movies.csv
+COPY INTO raw_movies
+FROM @netflixstage/movies.csv
+FILE_FORMAT = (
+    TYPE = 'CSV'
+    FIELD_DELIMITER = ','
+    SKIP_HEADER = 1
+    FIELD_OPTIONALLY_ENCLOSED_BY = '"'
+)
+ON_ERROR = 'CONTINUE';
+
+-- ratings.csv
+COPY INTO raw_ratings
+FROM @netflixstage/ratings.csv
+FILE_FORMAT = (
+    TYPE = 'CSV'
+    FIELD_DELIMITER = ','
+    SKIP_HEADER = 1
+    FIELD_OPTIONALLY_ENCLOSED_BY = '"'
+)
+ON_ERROR = 'CONTINUE';
+
+-- tags.csv (this one caused your error → NOW FIXED)
+COPY INTO raw_tags
+FROM @netflixstage/tags.csv
+FILE_FORMAT = (
+    TYPE = 'CSV'
+    FIELD_DELIMITER = ','
+    SKIP_HEADER = 1
+    FIELD_OPTIONALLY_ENCLOSED_BY = '"'
+)
+ON_ERROR = 'CONTINUE';
+
+-- OPTIONAL
+COPY INTO raw_genome_scores
+FROM @netflixstage/genome-scores.csv
+FILE_FORMAT = (
+    TYPE = 'CSV'
+    SKIP_HEADER = 1
+    FIELD_OPTIONALLY_ENCLOSED_BY = '"'
+)
+ON_ERROR = 'CONTINUE';
+
+COPY INTO raw_genome_tags
+FROM @netflixstage/genome-tags.csv
+FILE_FORMAT = (
+    TYPE = 'CSV'
+    SKIP_HEADER = 1
+    FIELD_OPTIONALLY_ENCLOSED_BY = '"'
+)
+ON_ERROR = 'CONTINUE';
+
+-- Load raw_links
+CREATE OR REPLACE TABLE raw_links (
+  movieId INTEGER,
+  imdbId INTEGER,
+  tmdbId INTEGER
+);
+
+COPY INTO raw_links
+FROM @netflixstage/links.csv
+FILE_FORMAT = (TYPE = 'CSV' SKIP_HEADER = 1 FIELD_OPTIONALLY_ENCLOSED_BY = '"');
+
+-- ==========================================================
+-- 5. Verify loaded data
+-- ==========================================================
+SELECT * FROM raw_movies ;
+SELECT * FROM raw_ratings ;
+SELECT * FROM raw_tags;
+SELECT * FROM raw_genome_scores;
+SELECT * FROM raw_genome_tags;
+SELECT * FROM raw_links

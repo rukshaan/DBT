@@ -1,3 +1,7 @@
+{{config(
+    materialized='table',
+    
+)}}
 with raw_tags as (
     select * from MOVIELENS.RAW.RAW_TAGS
 )
